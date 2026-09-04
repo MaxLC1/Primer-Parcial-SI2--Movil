@@ -5,8 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 class ApiService {
   // Ajusta esta IP a tu red local (o localhost si usas un simulador)
   // Para Android Emulator suele ser 10.0.2.2
-  // Ajustado a la IP local de tu PC para probar en el teléfono
-  static const String baseUrl = 'http://192.168.100.4:8000/api/v1';
+  static const String baseUrl = 'http://34.230.18.9:8000/api/v1';
 
   Future<Map<String, dynamic>?> registrarCliente(String nombre, String email, String password) async {
     final response = await http.post(
