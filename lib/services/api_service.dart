@@ -3,8 +3,8 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
-  // IP local de la computadora (192.168.100.4) para conectar celular físico o emulador
-  static const String baseUrl = 'http://192.168.100.4:8000/api/v1';
+  // IP pública del servidor AWS
+  static const String baseUrl = 'http://34.230.18.9:8000/api/v1';
 
   Future<Map<String, dynamic>?> registrarCliente(String nombre, String email, String password) async {
     final response = await http.post(
