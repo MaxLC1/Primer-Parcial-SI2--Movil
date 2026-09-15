@@ -95,7 +95,16 @@ class _CatalogScreenState extends State<CatalogScreen> {
                                 color: Colors.grey[200],
                                 borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
                               ),
-                              child: const Icon(Icons.image, size: 50, color: Colors.grey),
+                              child: ClipRRect(
+                                borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                                child: (p['imagen_url'] != null && p['imagen_url'].toString().isNotEmpty)
+                                  ? Image.network(
+                                      p['imagen_url'], 
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (context, error, stackTrace) => const Icon(Icons.broken_image, size: 50, color: Colors.grey),
+                                    )
+                                  : const Icon(Icons.image, size: 50, color: Colors.grey),
+                              ),
                             ),
                           ),
                           Padding(

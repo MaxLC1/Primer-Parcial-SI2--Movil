@@ -3,9 +3,8 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
-  // Ajusta esta IP a tu red local (o localhost si usas un simulador)
-  // Para Android Emulator suele ser 10.0.2.2
-  static const String baseUrl = 'http://34.230.18.9:8000/api/v1';
+  // IP local de la computadora (192.168.100.4) para conectar celular físico o emulador
+  static const String baseUrl = 'http://192.168.100.4:8000/api/v1';
 
   Future<Map<String, dynamic>?> registrarCliente(String nombre, String email, String password) async {
     final response = await http.post(
@@ -15,7 +14,7 @@ class ApiService {
         'nombre_completo': nombre,
         'email': email,
         'password': password,
-        'rol_id': 3 // ID 3 = Cliente (según tu DB)
+        'rol_id': 4 // ID 4 = Cliente (corregido según la BD)
       }),
     );
 
@@ -100,8 +99,19 @@ class ApiService {
     }
   }
 
+  // --- SUCURSALES ---
+  Future<List<dynamic>> getSucursales() async {
+    final response = await http.get(Uri.parse('$baseUrl/sucursales/sucursales'));
+    
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('No se pudieron cargar las sucursales');
+    }
+  }
+
   // --- VENTAS Y RESERVAS ---
-  Future<void> crearReserva(List<dynamic> items) async {
+  Future<void> crearReserva(List<dynamic> items, int sucursalId) async {
     final token = await getToken();
     if (token == null) throw Exception('No hay sesión activa.');
 
@@ -110,7 +120,7 @@ class ApiService {
 
     // Construir la estructura VentaCreate
     final body = {
-      'sucursal_id': 1, // Sucursal por defecto para el prototipo
+      'sucursal_id': sucursalId,
       'usuario_id': userId,
       'detalles': items.map((item) => {
         'producto_id': item.productoId,

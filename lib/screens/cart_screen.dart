@@ -11,14 +11,48 @@ class CartScreen extends StatefulWidget {
 
 class _CartScreenState extends State<CartScreen> {
   final CartService _cart = CartService();
+  final ApiService _api = ApiService();
+  
   bool _isLoading = false;
+  bool _isLoadingSucursales = true;
+  List<dynamic> _sucursales = [];
+  int? _selectedSucursalId;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSucursales();
+  }
+
+  Future<void> _loadSucursales() async {
+    try {
+      final sucursales = await _api.getSucursales();
+      setState(() {
+        _sucursales = sucursales;
+        _isLoadingSucursales = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error cargando sucursales: $e')),
+      );
+      setState(() => _isLoadingSucursales = false);
+    }
+  }
 
   void _confirmarReserva() async {
     if (_cart.items.isEmpty) return;
+    
+    if (_selectedSucursalId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Por favor, selecciona una sucursal para tu reserva.'), backgroundColor: Colors.orange),
+      );
+      return;
+    }
 
     setState(() => _isLoading = true);
     try {
-      await ApiService().crearReserva(_cart.items);
+      await _api.crearReserva(_cart.items, _selectedSucursalId!);
       if (!mounted) return;
       
       _cart.clear(); // Limpiamos el carrito
@@ -37,7 +71,6 @@ class _CartScreenState extends State<CartScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // ListenableBuilder escucha los cambios de ChangeNotifier en CartService
     return ListenableBuilder(
       listenable: _cart,
       builder: (context, _) {
@@ -75,7 +108,7 @@ class _CartScreenState extends State<CartScreen> {
               ),
             ),
             
-            // Footer con el total y botón
+            // Footer con selección de sucursal y total
             Container(
               padding: const EdgeInsets.all(20),
               decoration: const BoxDecoration(
@@ -84,7 +117,34 @@ class _CartScreenState extends State<CartScreen> {
               ),
               child: SafeArea(
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    // Selector de Sucursal
+                    if (_isLoadingSucursales)
+                      const Center(child: CircularProgressIndicator())
+                    else
+                      DropdownButtonFormField<int>(
+                        value: _selectedSucursalId,
+                        decoration: InputDecoration(
+                          labelText: 'Selecciona una Sucursal',
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        ),
+                        items: _sucursales.map<DropdownMenuItem<int>>((sucursal) {
+                          return DropdownMenuItem<int>(
+                            value: sucursal['id'],
+                            child: Text('${sucursal['nombre']} - ${sucursal['direccion']}'),
+                          );
+                        }).toList(),
+                        onChanged: (int? newValue) {
+                          setState(() {
+                            _selectedSucursalId = newValue;
+                          });
+                        },
+                      ),
+                    
+                    const SizedBox(height: 16),
+                    
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -94,12 +154,12 @@ class _CartScreenState extends State<CartScreen> {
                     ),
                     const SizedBox(height: 16),
                     SizedBox(
-                      width: double.infinity,
                       height: 50,
                       child: ElevatedButton(
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.black,
                           foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),
                         onPressed: _isLoading ? null : _confirmarReserva,
                         child: _isLoading 
