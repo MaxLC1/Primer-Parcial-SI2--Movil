@@ -4,7 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
   // IP Local para pruebas
-  static const String baseUrl = 'http://192.168.100.4:8000/api/v1';
+  static const String baseUrl = 'http://34.230.18.9:8000/api/v1';
 
   Future<Map<String, dynamic>?> registrarCliente(String nombre, String email, String password) async {
     final response = await http.post(
