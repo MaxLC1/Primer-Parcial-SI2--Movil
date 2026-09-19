@@ -3,8 +3,8 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
-  // IP pública del servidor AWS
-  static const String baseUrl = 'http://34.230.18.9:8000/api/v1';
+  // IP Local para pruebas
+  static const String baseUrl = 'http://192.168.100.4:8000/api/v1';
 
   Future<Map<String, dynamic>?> registrarCliente(String nombre, String email, String password) async {
     final response = await http.post(
@@ -142,6 +142,44 @@ class ApiService {
 
     if (response.statusCode != 200 && response.statusCode != 201) {
       throw Exception(jsonDecode(response.body)['detail'] ?? 'Error al crear reserva');
+    }
+  }
+
+  Future<void> crearVenta(List<dynamic> items, String tipoEntrega, String direccionEnvio, String metodoPago) async {
+    final token = await getToken();
+    if (token == null) throw Exception('No hay sesión activa.');
+
+    final decoded = decodeJwt(token);
+    final userId = decoded['id']; 
+
+    // Para app móvil, si es Delivery y no eligieron sucursal, asignamos la sucursal 1 (Central)
+    final body = {
+      'sucursal_id': 1, 
+      'usuario_id': userId,
+      'metodo_pago': metodoPago,
+      'transaccion_id': null,
+      'tipo_entrega': tipoEntrega,
+      'direccion_envio': direccionEnvio,
+      'detalles': items.map((item) => {
+        'producto_id': item.productoId,
+        'talla_id': item.tallaId,
+        'color_id': item.colorId,
+        'cantidad': item.cantidad,
+        'precio_unitario': item.precioUnitario,
+      }).toList(),
+    };
+
+    final response = await http.post(
+      Uri.parse('$baseUrl/ventas/'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode(body),
+    );
+
+    if (response.statusCode != 200 && response.statusCode != 201) {
+      throw Exception(jsonDecode(response.body)['detail'] ?? 'Error al crear la venta');
     }
   }
 }

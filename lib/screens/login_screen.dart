@@ -3,6 +3,8 @@ import '../services/api_service.dart';
 import 'main_screen.dart';
 import 'register_screen.dart';
 
+import 'delivery_screen.dart';
+
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -29,6 +31,20 @@ class _LoginScreenState extends State<LoginScreen> {
       final response = await _api.login(correo, password);
       if (response != null) {
         if (!mounted) return;
+        
+        final token = await _api.getToken();
+        if (token != null) {
+          final payload = _api.decodeJwt(token);
+          
+          if (payload['rol'] == 'Repartidor') {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => const DeliveryScreen()),
+            );
+            return;
+          }
+        }
+        
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => const MainScreen()),

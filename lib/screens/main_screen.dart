@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'catalog_screen.dart';
 import 'profile_screen.dart';
 import 'cart_screen.dart';
+import 'vestidor_screen.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -15,6 +16,7 @@ class _MainScreenState extends State<MainScreen> {
   
   final List<Widget> _screens = [
     const CatalogScreen(),
+    const VestidorScreen(),
     const CartScreen(),
     const ProfileScreen(),
   ];
@@ -34,11 +36,17 @@ class _MainScreenState extends State<MainScreen> {
         onTap: _onItemTapped,
         selectedItemColor: const Color(0xFFEA580C),
         unselectedItemColor: Colors.grey,
+        type: BottomNavigationBarType.fixed, // Asegura que se vean todos los íconos
         items: const [
           BottomNavigationBarItem(
             icon: Icon(Icons.shopping_bag_outlined),
             activeIcon: Icon(Icons.shopping_bag),
             label: 'Catálogo',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.auto_awesome_outlined),
+            activeIcon: Icon(Icons.auto_awesome),
+            label: 'Vestidor IA',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.shopping_cart_outlined),

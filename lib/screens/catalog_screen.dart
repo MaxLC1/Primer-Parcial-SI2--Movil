@@ -81,7 +81,18 @@ class _CatalogScreenState extends State<CatalogScreen> {
                   itemCount: productos.length,
                   itemBuilder: (context, index) {
                     final p = productos[index];
-                    final tieneAR = p['modelo_3d_url'] != null && p['modelo_3d_url'].toString().isNotEmpty;
+                    
+                    // Parse URLs replacing localhost with PC IP
+                    String? imgUrl = p['imagen_url']?.toString();
+                    if (imgUrl != null && imgUrl.isNotEmpty) {
+                      imgUrl = imgUrl.replaceAll('localhost', '192.168.100.4');
+                    }
+                    String? url3d = p['modelo_3d_url']?.toString();
+                    if (url3d != null && url3d.isNotEmpty) {
+                      url3d = url3d.replaceAll('localhost', '192.168.100.4');
+                    }
+                    
+                    final tieneAR = url3d != null && url3d.isNotEmpty;
 
                     return Card(
                       elevation: 4,
@@ -97,9 +108,9 @@ class _CatalogScreenState extends State<CatalogScreen> {
                               ),
                               child: ClipRRect(
                                 borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-                                child: (p['imagen_url'] != null && p['imagen_url'].toString().isNotEmpty)
+                                child: (imgUrl != null && imgUrl.isNotEmpty)
                                   ? Image.network(
-                                      p['imagen_url'], 
+                                      imgUrl, 
                                       fit: BoxFit.cover,
                                       errorBuilder: (context, error, stackTrace) => const Icon(Icons.broken_image, size: 50, color: Colors.grey),
                                     )
@@ -121,12 +132,12 @@ class _CatalogScreenState extends State<CatalogScreen> {
                                     Expanded(
                                       child: OutlinedButton.icon(
                                         style: OutlinedButton.styleFrom(
-                                          foregroundColor: p['modelo_3d_url'] != null ? Colors.black : Colors.grey,
-                                          side: BorderSide(color: p['modelo_3d_url'] != null ? Colors.black : Colors.grey.shade300),
+                                          foregroundColor: tieneAR ? Colors.black : Colors.grey,
+                                          side: BorderSide(color: tieneAR ? Colors.black : Colors.grey.shade300),
                                         ),
                                         icon: const Icon(Icons.view_in_ar, size: 16),
                                         label: const Text('Ver en AR', style: TextStyle(fontSize: 12)),
-                                        onPressed: () => _abrirAR(p['modelo_3d_url'], p['nombre']),
+                                        onPressed: () => _abrirAR(url3d, p['nombre']),
                                       ),
                                     ),
                                     const SizedBox(width: 8),

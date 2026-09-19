@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../services/api_service.dart';
 import '../services/cart_service.dart';
 
@@ -17,6 +18,10 @@ class _CartScreenState extends State<CartScreen> {
   bool _isLoadingSucursales = true;
   List<dynamic> _sucursales = [];
   int? _selectedSucursalId;
+
+  String _tipoEntrega = 'Recojo en Sucursal';
+  String _direccionEnvio = '';
+  String _metodoPago = 'Efectivo';
 
   @override
   void initState() {
@@ -40,24 +45,209 @@ class _CartScreenState extends State<CartScreen> {
     }
   }
 
-  void _confirmarReserva() async {
+  void _procesarOrden() {
     if (_cart.items.isEmpty) return;
-    
-    if (_selectedSucursalId == null) {
+
+    if (_tipoEntrega == 'Recojo en Sucursal' && _selectedSucursalId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Por favor, selecciona una sucursal para tu reserva.'), backgroundColor: Colors.orange),
+        const SnackBar(content: Text('Selecciona una sucursal para tu reserva.'), backgroundColor: Colors.orange),
       );
       return;
     }
 
+    if (_tipoEntrega == 'Envío a Domicilio' && _direccionEnvio.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Ingresa una dirección de envío.'), backgroundColor: Colors.orange),
+      );
+      return;
+    }
+
+    if (_metodoPago == 'QR') {
+      _mostrarModalQR();
+    } else if (_metodoPago == 'Stripe') {
+      _mostrarModalStripe();
+    } else {
+      _confirmarPedidoFinal();
+    }
+  }
+
+  void _mostrarModalQR() {
+    bool isVerifying = false;
+    bool isSuccess = false;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setStateModal) {
+          return AlertDialog(
+            title: Text(isSuccess ? '¡Pago Exitoso!' : 'Pago con QR', textAlign: TextAlign.center),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (!isSuccess) ...[
+                  const Text('Monto a pagar:', style: TextStyle(color: Colors.grey)),
+                  Text('Bs ${_cart.total}', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade300), borderRadius: BorderRadius.circular(12)),
+                    child: Image.network('https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=Monto:${_cart.total}', height: 180),
+                  ),
+                  const SizedBox(height: 16),
+                  if (isVerifying) ...[
+                    const CircularProgressIndicator(),
+                    const SizedBox(height: 8),
+                    const Text('Verificando pago...', style: TextStyle(color: Colors.blue)),
+                  ] else ...[
+                    const Text('Escanea para pagar', style: TextStyle(color: Colors.grey)),
+                  ]
+                ] else ...[
+                  const Icon(Icons.check_circle, color: Colors.green, size: 80),
+                  const SizedBox(height: 16),
+                  const Text('Tu pago ha sido procesado.', style: TextStyle(fontSize: 16)),
+                ]
+              ],
+            ),
+            actions: [
+              if (!isSuccess && !isVerifying)
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancelar', style: TextStyle(color: Colors.grey)),
+                ),
+              if (!isSuccess && !isVerifying)
+                TextButton(
+                  onPressed: () async {
+                    setStateModal(() => isVerifying = true);
+                    await Future.delayed(const Duration(seconds: 2));
+                    setStateModal(() {
+                      isVerifying = false;
+                      isSuccess = true;
+                    });
+                    await Future.delayed(const Duration(seconds: 1));
+                    if (context.mounted) {
+                      Navigator.pop(context);
+                      _confirmarPedidoFinal();
+                    }
+                  },
+                  child: const Text('Verificar Pago'),
+                ),
+            ],
+          );
+        }
+      ),
+    );
+  }
+
+  void _mostrarModalStripe() {
+    bool isProcessing = false;
+    bool isSuccess = false;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setStateModal) {
+          return AlertDialog(
+            title: Text(isSuccess ? '¡Pago Exitoso!' : 'Pago con Tarjeta', textAlign: TextAlign.center),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (!isSuccess) ...[
+                  const Text('Monto a pagar:', style: TextStyle(color: Colors.grey)),
+                  Text('Bs ${_cart.total}', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 16),
+                  TextField(
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.digitsOnly,
+                      LengthLimitingTextInputFormatter(16),
+                      CardNumberFormatter(),
+                    ],
+                    decoration: const InputDecoration(labelText: 'Número de Tarjeta', hintText: '0000 0000 0000 0000', border: OutlineInputBorder(), prefixIcon: Icon(Icons.credit_card))
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          keyboardType: TextInputType.number,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                            LengthLimitingTextInputFormatter(4),
+                            ExpirationDateFormatter(),
+                          ],
+                          decoration: const InputDecoration(labelText: 'MM/YY', hintText: '12/25', border: OutlineInputBorder())
+                        )
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: TextField(
+                          keyboardType: TextInputType.number,
+                          inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(3)],
+                          obscureText: true,
+                          decoration: const InputDecoration(labelText: 'CVC', hintText: '123', border: OutlineInputBorder())
+                        )
+                      ),
+                    ],
+                  ),
+                  if (isProcessing) ...[
+                    const SizedBox(height: 16),
+                    const CircularProgressIndicator(),
+                    const SizedBox(height: 8),
+                    const Text('Procesando...', style: TextStyle(color: Colors.blue)),
+                  ]
+                ] else ...[
+                  const Icon(Icons.check_circle, color: Colors.green, size: 80),
+                  const SizedBox(height: 16),
+                  const Text('Tu pago ha sido procesado.', style: TextStyle(fontSize: 16)),
+                ]
+              ],
+            ),
+            actions: [
+              if (!isSuccess && !isProcessing)
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancelar', style: TextStyle(color: Colors.grey)),
+                ),
+              if (!isSuccess && !isProcessing)
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.black, foregroundColor: Colors.white),
+                  onPressed: () async {
+                    setStateModal(() => isProcessing = true);
+                    await Future.delayed(const Duration(seconds: 2));
+                    setStateModal(() {
+                      isProcessing = false;
+                      isSuccess = true;
+                    });
+                    await Future.delayed(const Duration(seconds: 1));
+                    if (context.mounted) {
+                      Navigator.pop(context);
+                      _confirmarPedidoFinal();
+                    }
+                  },
+                  child: const Text('Pagar'),
+                ),
+            ],
+          );
+        }
+      ),
+    );
+  }
+
+  Future<void> _confirmarPedidoFinal() async {
     setState(() => _isLoading = true);
     try {
-      await _api.crearReserva(_cart.items, _selectedSucursalId!);
-      if (!mounted) return;
+      if (_tipoEntrega == 'Recojo en Sucursal') {
+        await _api.crearReserva(_cart.items, _selectedSucursalId!);
+      } else {
+        await _api.crearVenta(_cart.items, 'Delivery', _direccionEnvio, _metodoPago);
+      }
       
+      if (!mounted) return;
       _cart.clear(); // Limpiamos el carrito
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('¡Reserva confirmada con éxito!'), backgroundColor: Colors.green),
+        const SnackBar(content: Text('¡Pedido confirmado con éxito!'), backgroundColor: Colors.green),
       );
     } catch (e) {
       if (!mounted) return;
@@ -119,30 +309,76 @@ class _CartScreenState extends State<CartScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // Selector de Sucursal
-                    if (_isLoadingSucursales)
-                      const Center(child: CircularProgressIndicator())
-                    else
-                      DropdownButtonFormField<int>(
-                        value: _selectedSucursalId,
+                    // Tipo de Entrega
+                    DropdownButtonFormField<String>(
+                      value: _tipoEntrega,
+                      decoration: InputDecoration(
+                        labelText: '¿Cómo quieres recibir tu pedido?',
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      ),
+                      items: ['Recojo en Sucursal', 'Envío a Domicilio'].map((String val) {
+                        return DropdownMenuItem<String>(
+                          value: val,
+                          child: Text(val),
+                        );
+                      }).toList(),
+                      onChanged: (newValue) => setState(() => _tipoEntrega = newValue!),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Selector de Sucursal (Solo si es Recojo)
+                    if (_tipoEntrega == 'Recojo en Sucursal')
+                      if (_isLoadingSucursales)
+                        const Center(child: CircularProgressIndicator())
+                      else
+                        DropdownButtonFormField<int>(
+                          value: _selectedSucursalId,
+                          decoration: InputDecoration(
+                            labelText: 'Selecciona una Sucursal',
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          ),
+                          items: _sucursales.map<DropdownMenuItem<int>>((sucursal) {
+                            return DropdownMenuItem<int>(
+                              value: sucursal['id'],
+                              child: Text('${sucursal['nombre']} - ${sucursal['direccion']}'),
+                            );
+                          }).toList(),
+                          onChanged: (newValue) => setState(() => _selectedSucursalId = newValue),
+                        ),
+
+                    if (_tipoEntrega == 'Envío a Domicilio') ...[
+                      TextField(
                         decoration: InputDecoration(
-                          labelText: 'Selecciona una Sucursal',
+                          labelText: 'Dirección de Envío',
+                          hintText: 'Ej: Calle 123, Zona Sur',
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                         ),
-                        items: _sucursales.map<DropdownMenuItem<int>>((sucursal) {
-                          return DropdownMenuItem<int>(
-                            value: sucursal['id'],
-                            child: Text('${sucursal['nombre']} - ${sucursal['direccion']}'),
-                          );
-                        }).toList(),
-                        onChanged: (int? newValue) {
-                          setState(() {
-                            _selectedSucursalId = newValue;
-                          });
-                        },
+                        onChanged: (val) => _direccionEnvio = val,
                       ),
+                    ],
+
+                    const SizedBox(height: 12),
                     
+                    // Método de pago para ambos (Delivery y Recojo)
+                    DropdownButtonFormField<String>(
+                      value: _metodoPago,
+                      decoration: InputDecoration(
+                        labelText: 'Método de Pago',
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      ),
+                      items: ['Efectivo', 'QR', 'Stripe'].map((String val) {
+                        return DropdownMenuItem<String>(
+                          value: val,
+                          child: Text(val == 'Efectivo' ? 'Efectivo al recibir' : (val == 'QR' ? 'Pago con QR' : 'Tarjeta Stripe')),
+                        );
+                      }).toList(),
+                      onChanged: (newValue) => setState(() => _metodoPago = newValue!),
+                    ),
+
                     const SizedBox(height: 16),
                     
                     Row(
@@ -161,10 +397,10 @@ class _CartScreenState extends State<CartScreen> {
                           foregroundColor: Colors.white,
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),
-                        onPressed: _isLoading ? null : _confirmarReserva,
+                        onPressed: _isLoading ? null : _procesarOrden,
                         child: _isLoading 
                           ? const CircularProgressIndicator(color: Colors.white)
-                          : const Text('CONFIRMAR RESERVA', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                          : Text(_tipoEntrega == 'Recojo en Sucursal' ? 'CONFIRMAR RESERVA' : 'CONFIRMAR PEDIDO', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                       ),
                     ),
                   ],
@@ -177,3 +413,39 @@ class _CartScreenState extends State<CartScreen> {
     );
   }
 }
+
+// Formatters para Tarjeta
+class CardNumberFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
+    var text = newValue.text.replaceAll(RegExp(r'\D'), '');
+    var buffer = StringBuffer();
+    for (int i = 0; i < text.length; i++) {
+      buffer.write(text[i]);
+      var nonZeroIndex = i + 1;
+      if (nonZeroIndex % 4 == 0 && nonZeroIndex != text.length) {
+        buffer.write(' ');
+      }
+    }
+    var string = buffer.toString();
+    return newValue.copyWith(text: string, selection: TextSelection.collapsed(offset: string.length));
+  }
+}
+
+class ExpirationDateFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
+    var text = newValue.text.replaceAll(RegExp(r'\D'), '');
+    var buffer = StringBuffer();
+    for (int i = 0; i < text.length; i++) {
+      buffer.write(text[i]);
+      var nonZeroIndex = i + 1;
+      if (nonZeroIndex % 2 == 0 && nonZeroIndex != text.length && i < 2) {
+        buffer.write('/');
+      }
+    }
+    var string = buffer.toString();
+    return newValue.copyWith(text: string, selection: TextSelection.collapsed(offset: string.length));
+  }
+}
+
