@@ -35,7 +35,9 @@ class _VestidorScreenState extends State<VestidorScreen> {
       setState(() {
         _productos = data.where((p) => p['imagen_url'] != null).map((p) {
           if (p['imagen_url'] != null) {
-            p['imagen_url'] = p['imagen_url'].toString().replaceAll('localhost', '192.168.100.4');
+            // Reemplazamos la IP si hace falta, y usamos el endpoint proxy-nobg
+            String rawUrl = p['imagen_url'].toString().replaceAll('localhost', '192.168.100.4');
+            p['imagen_url'] = 'http://34.230.18.9/api/v1/archivos/proxy-nobg?url=' + Uri.encodeComponent(rawUrl);
           }
           return p;
         }).toList();
