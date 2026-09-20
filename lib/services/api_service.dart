@@ -99,6 +99,24 @@ class ApiService {
     }
   }
 
+  Future<List<dynamic>> getColores() async {
+    final response = await http.get(Uri.parse('$baseUrl/catalogo/colores/'));
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('No se pudo cargar colores');
+    }
+  }
+
+  Future<List<dynamic>> getTallas() async {
+    final response = await http.get(Uri.parse('$baseUrl/catalogo/tallas/'));
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('No se pudo cargar tallas');
+    }
+  }
+
   // --- SUCURSALES ---
   Future<List<dynamic>> getSucursales() async {
     final response = await http.get(Uri.parse('$baseUrl/sucursales/sucursales'));

@@ -63,6 +63,55 @@ class _VestidorScreenState extends State<VestidorScreen> {
     }
   }
 
+  void _mostrarOpcionesProducto() async {
+    try {
+      final colores = await _api.getColores();
+      if (!mounted) return;
+      
+      showModalBottomSheet(
+        context: context,
+        builder: (context) {
+          return Container(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Elige el color para ${_selectedProduct['nombre']}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 16),
+                Wrap(
+                  spacing: 10,
+                  children: colores.map((c) {
+                    return ActionChip(
+                      label: Text(c['nombre']),
+                      onPressed: () {
+                        Navigator.pop(context);
+                        CartService().addItem(
+                          _selectedProduct['id'], 
+                          _selectedProduct['nombre'], 
+                          (_selectedProduct['precio'] ?? 0).toDouble(),
+                          colorId: c['id'],
+                          colorName: c['nombre'],
+                        );
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('${_selectedProduct['nombre']} (${c['nombre']}) añadido a tus reservas')),
+                        );
+                      },
+                    );
+                  }).toList(),
+                ),
+              ],
+            ),
+          );
+        }
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error al cargar colores: $e')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -179,14 +228,7 @@ class _VestidorScreenState extends State<VestidorScreen> {
                 child: ElevatedButton.icon(
                   style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFEA580C), foregroundColor: Colors.white),
                   onPressed: () {
-                    CartService().addItem(
-                      _selectedProduct['id'], 
-                      _selectedProduct['nombre'], 
-                      (_selectedProduct['precio'] ?? 0).toDouble()
-                    );
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('${_selectedProduct['nombre']} añadido a tus reservas')),
-                    );
+                    _mostrarOpcionesProducto();
                   },
                   icon: const Icon(Icons.shopping_cart),
                   label: const Text('Me encanta, añadir a la bolsa', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),

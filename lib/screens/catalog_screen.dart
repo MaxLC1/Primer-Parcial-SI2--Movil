@@ -57,6 +57,55 @@ class _CatalogScreenState extends State<CatalogScreen> {
     );
   }
 
+  void _mostrarOpcionesProducto(dynamic p) async {
+    try {
+      final colores = await _api.getColores();
+      if (!mounted) return;
+      
+      showModalBottomSheet(
+        context: context,
+        builder: (context) {
+          return Container(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Elige el color para ${p['nombre']}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 16),
+                Wrap(
+                  spacing: 10,
+                  children: colores.map((c) {
+                    return ActionChip(
+                      label: Text(c['nombre']),
+                      onPressed: () {
+                        Navigator.pop(context);
+                        CartService().addItem(
+                          p['id'], 
+                          p['nombre'], 
+                          (p['precio'] ?? 0).toDouble(),
+                          colorId: c['id'],
+                          colorName: c['nombre'],
+                        );
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('${p['nombre']} (${c['nombre']}) añadido a tu reserva')),
+                        );
+                      },
+                    );
+                  }).toList(),
+                ),
+              ],
+            ),
+          );
+        }
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error al cargar colores: $e')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -144,17 +193,7 @@ class _CatalogScreenState extends State<CatalogScreen> {
                                     IconButton(
                                       icon: const Icon(Icons.add_shopping_cart, color: Colors.orange),
                                       onPressed: () {
-                                        CartService().addItem(
-                                          p['id'], 
-                                          p['nombre'], 
-                                          (p['precio'] ?? 0).toDouble()
-                                        );
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          SnackBar(
-                                            content: Text('${p['nombre']} añadido a tu reserva'), 
-                                            duration: const Duration(seconds: 1),
-                                          ),
-                                        );
+                                        _mostrarOpcionesProducto(p);
                                       },
                                     ),
                                   ],
